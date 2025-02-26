@@ -12,7 +12,7 @@ const bodyParser = require('body-parser');
 const client = new Client({
     node: 'https://7441222d1c12456cae009f0c5f878e45.westus2.azure.elastic-cloud.com:443',
     auth: {
-        apiKey: 'NXdVZFA1VUJSa3k2ZlUzekwtUnU6OE04WGhRMFhUUm11NDRKSUlvdy1WQQ=='
+        apiKey: 'bVFWS1JKVUJSa3k2ZlUzelUtaXQ6eXpXQXV4QnRRMUNXcHJ3UUh3bGNDZw=='
     }
 });
 
