@@ -73,6 +73,7 @@ insert into Clusters values (
 'https://esresearch.es.westus2.azure.elastic-cloud.com'
 );
 
+select * from clusters;
 create table ApiKeys(
 ApiKeyId int not null primary key identity(1,1),
 ClusterId int not null,
