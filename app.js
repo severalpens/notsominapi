@@ -4,47 +4,14 @@ var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
 var logger = require('morgan');
-const { Client } = require('@elastic/elasticsearch');
 const chalk = require('chalk');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 var DbContext = require('./DbContext');
 const dbContext = new DbContext();
+const EsContext = require('./EsContext');
+const esContext = new EsContext(dbContext);
 
-const client = new Client({
-    node: process.env.ELASTICSEARCH_URL,
-    auth: {
-        apiKey: process.env.ELASTICSEARCH_API_KEY
-    }
-});
-
-const connectToAzureSql = async () => {
-  const sqlQuery = `
-            select
-                ClusterId,
-                Name,
-                Description,
-                KibanaUrl,
-                EndpointUrl,
-                EndpointUrl2
-            from Clusters;
-        `;
-   await dbContext.executeStatement(sqlQuery);
-}
-connectToAzureSql();
-
-const verifyClientConnection = async () => {
-  const resp = await client.info();
-  let isConnected = false;
-  if (resp.name) {
-      console.log(chalk.green('Connected to ElasticSearch'));
-      isConnected = true;
-  } else {
-      console.log(chalk.red('Failed to connect to ElasticSearch'));
-      isConnected = false;
-  }
-  return isConnected;
-};
 
 var app = express();
 app.use(cors());
@@ -60,26 +27,106 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.use('/search', async function (req, res, next) {
-  if (verifyClientConnection()) {
-      const reqBody = req.body;
-      console.log('reqBody', reqBody);
-      const result = await client.search({
-          index: 'main',
-          body: reqBody
-      });
-      res.send(result);
+app.post('/baseline', async function (req, res, next) {  
+  if (await esContext.verifyClientConnection()) {
+    const result = await esContext.client.search({
+      index: 'dummy_index',
+      body: {
+          "multi_match": {
+            "query": req.body.query,
+            "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer", "faqLongAnswer"]
+          },
+          "size": 3,
+          "_source": ["uuid", "resultType", "fragmentTitle", "url", "shortDescription", "faqShortAnswer"]
+      }
+    });
+    res.send(result);
   }
   else {
-      res.send('Failed to connect to ElasticSearch');
+    res.send('Failed to connect to ElasticSearch');
   }
 });
 
-app.use(function(req, res, next) {
+
+app.post('/completionsuggestor', async function (req, res, next) {  
+  if (await esContext.verifyClientConnection()) {
+    const result = await esContext.client.search({
+      index: 'dummy_index',
+      body: {
+        "suggest": {
+          "autocomplete": {
+            "prefix": req.body.query,
+            "completion": {
+              "field": "fragmentTitleSuggest",
+              "size": 3,
+              "skip_duplicates": true
+            }
+          }
+        },
+        "_source": ["fragmentTitle", "shortDescription", "url"]
+      }
+    });
+    res.send(result);
+  }
+  else {
+    res.send('Failed to connect to ElasticSearch');
+  }
+});
+
+
+
+// post endpoint using format: POST /:indexName/_search
+app.post('/:indexName/_search', async function (req, res, next) {
+  console.log('req.params.indexName', req.params.indexName);
+  console.log('req.body', req.body);
+  
+  
+  if (await esContext.verifyClientConnection()) {
+    const result = await esContext.client.search({
+      index: req.params.indexName,
+      body: {
+        "suggest": {
+          "autocomplete": {
+            "prefix": req.body.query,
+            "completion": {
+              "field": "fragmentTitleSuggest",
+              "size": 3,
+              "skip_duplicates": true
+            }
+          }
+        },
+        "_source": ["fragmentTitle", "shortDescription", "url"]
+      }
+    });
+    res.send(result);
+  }
+  else {
+    res.send('Failed to connect to ElasticSearch');
+  }
+});
+
+
+// Proxy search: Client sends the full json body as if it was sending directly to ElasticSearch
+app.use('/proxysearch', async function (req, res, next) {
+  if (await esContext.verifyClientConnection()) {
+    const reqBody = req.body;
+    console.log('reqBody', reqBody);
+    const result = await esContext.client.search({
+      index: 'main',
+      body: reqBody
+    });
+    res.send(result);
+  }
+  else {
+    res.send('Failed to connect to ElasticSearch');
+  }
+});
+
+app.use(function (req, res, next) {
   next(createError(404));
 });
 
-app.use(function(err, req, res, next) {
+app.use(function (err, req, res, next) {
   res.locals.message = err.message;
   res.locals.error = req.app.get('env') === 'development' ? err : {};
   res.status(err.status || 500);
