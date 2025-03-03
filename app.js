@@ -14,7 +14,14 @@ const fs = require('fs-extra');
 
 
 var app = express();
-app.use(cors());
+
+app.use(cors({
+  origin: 'https://happy-bush-0ab015800.6.azurestaticapps.net', // Allow only your frontend
+  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+  allowedHeaders: 'Content-Type,Authorization'
+}));
+
+app.options('*', cors()); // Handle preflight requests
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
