@@ -43,6 +43,24 @@ class DbContext {
         });
     }
 
+    async executeNonQuery(sqlQuery) {
+        await this.connect();
+        return new Promise((resolve, reject) => {
+            var request = new Request(sqlQuery, (err) => {
+                if (err) {
+                    reject(err);
+                }
+            });
+
+            request.on('requestCompleted', () => {
+                this.connection.close();
+                resolve();
+            });
+
+            this.connection.execSql(request);
+        });
+    }
+
     async executeStatement(sqlQuery) {
         await this.connect();
         return new Promise((resolve, reject) => {
