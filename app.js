@@ -11,8 +11,7 @@ const dbContext = new DbContext();
 const EsContext = require('./EsContext');
 const esContext = new EsContext(dbContext);
 const fs = require('fs-extra');
-
-
+const connectAndNonQuery = require('./MsSqlContext');
 var app = express();
 app.use(cors());
 
@@ -40,6 +39,65 @@ app.get('/', async function (req, res) {
   res.send("Welcome to notsominapi")
 });
 
+app.get('/test1', async function (req, res) {
+  try {
+    if (!(await esContext.verifyClientConnection())) {
+      return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
+    }
+
+    const testQuestions = fs.readJsonSync('./testQuestions.json');
+
+    for (const testQuestion of testQuestions) {
+      const answers = await esContext.client.search({
+        index: 'dummy_index',
+        body: {
+          query: {
+            multi_match: {
+              query: testQuestion.Question,
+              fields: [
+                "fragmentTitle",
+                "shortDescription",
+                "faqShortAnswer",
+                "faqLongAnswer"
+              ]
+            }
+          },
+          size: 3,
+          _source: [
+            "uuid",
+            "resultType",
+            "fragmentTitle",
+            "url",
+            "shortDescription",
+            "faqShortAnswer"
+          ]
+        }
+      });
+
+      for (const answer of answers.hits.hits) {
+        console.log('answer:', answer);
+        var questionId = testQuestion.Id;
+        var question = testQuestion.Question.replace(/'/g, "''");
+        var faqShortAnswer = answer._source.faqShortAnswer ? answer._source.faqShortAnswer.replace(/'/g, "''") : '';
+        var shortDescription = answer._source.shortDescription ? answer._source.shortDescription.replace(/'/g, "''") : '';
+        var fragmentTitle = answer._source.fragmentTitle ? answer._source.fragmentTitle.replace(/'/g, "''") : '';
+        var sql = `INSERT INTO testresults (QuestionId, Question, faqShortAnswer,shortDescription,fragmentTitle) VALUES ('${questionId}', '${question}', '${faqShortAnswer}', '${shortDescription}', '${fragmentTitle}');`;
+        await connectAndNonQuery(sql);
+
+      }
+
+
+    }
+
+
+
+    res.send("test1 done");
+  } catch (error) {
+    console.error('Elasticsearch search error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 app.get('/baseline', async function (req, res) {
   try {
     if (!(await esContext.verifyClientConnection())) {
@@ -53,20 +111,20 @@ app.get('/baseline', async function (req, res) {
           multi_match: {
             query: "how do i update my limit?",
             fields: [
-              "fragmentTitle", 
-              "shortDescription", 
-              "faqShortAnswer", 
+              "fragmentTitle",
+              "shortDescription",
+              "faqShortAnswer",
               "faqLongAnswer"
             ]
           }
         },
         size: 3,
         _source: [
-          "uuid", 
-          "resultType", 
-          "fragmentTitle", 
-          "url", 
-          "shortDescription", 
+          "uuid",
+          "resultType",
+          "fragmentTitle",
+          "url",
+          "shortDescription",
           "faqShortAnswer"
         ]
       }
@@ -97,20 +155,20 @@ app.post('/baseline', async function (req, res) {
           multi_match: {
             query: query,
             fields: [
-              "fragmentTitle", 
-              "shortDescription", 
-              "faqShortAnswer", 
+              "fragmentTitle",
+              "shortDescription",
+              "faqShortAnswer",
               "faqLongAnswer"
             ]
           }
         },
         size: 3,
         _source: [
-          "uuid", 
-          "resultType", 
-          "fragmentTitle", 
-          "url", 
-          "shortDescription", 
+          "uuid",
+          "resultType",
+          "fragmentTitle",
+          "url",
+          "shortDescription",
           "faqShortAnswer"
         ]
       }
@@ -122,9 +180,67 @@ app.post('/baseline', async function (req, res) {
   }
 });
 
+app.get('/all', async function (req, res) {
+  if (!(await esContext.verifyClientConnection())) {
+    return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
+  }
+
+  const result = await esContext.client.search({
+    index: 'dummy_index',
+    body: {
+      query: {
+        match_all: {}
+      },
+      size: 500,
+      _source: [
+        "uuid",
+        "resultType",
+        "fragmentTitle",
+        "url",
+        "shortDescription",
+        "faqShortAnswer"
+      ]
+    }
+  });
+  res.json(result);
+});
 
 
-app.post('/completionsuggestor', async function (req, res, next) {  
+app.post('/all', async function (req, res) {
+  if (!(await esContext.verifyClientConnection())) {
+    return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
+  }
+
+  const result = await esContext.client.search({
+    index: 'dummy_index',
+    body: {
+      query: {
+        multi_match: {
+          query: req.body.query,
+          fields: [
+            "fragmentTitle",
+            "shortDescription",
+            "faqShortAnswer",
+            "faqLongAnswer"
+          ]
+        }
+      },
+      size: 500,
+      _source: [
+        "uuid",
+        "resultType",
+        "fragmentTitle",
+        "url",
+        "shortDescription",
+        "faqShortAnswer"
+      ]
+    }
+  });
+  res.json(result);
+});
+
+
+app.post('/completionsuggestor', async function (req, res, next) {
   if (await esContext.verifyClientConnection()) {
     const result = await esContext.client.search({
       index: 'dummy_index',
