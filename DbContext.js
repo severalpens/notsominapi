@@ -20,22 +20,21 @@ var config = {
 
 class DbContext {
     constructor() {
-        this.connection = new Connection(config);
-        this.connection.on('connect', (err) => {
-            if (err) {
-                console.error('Connection error:', err);
-            } else {
-                console.log('Connected to Azure SQL scb database');
-            }
-        });
+        this.config = config;
+        this.connection = null;
     }
 
     async connect() {
+        if (this.connection && this.connection.state.name !== 'Final') {
+            return;
+        }
+        this.connection = new Connection(this.config);
         return new Promise((resolve, reject) => {
             this.connection.on('connect', (err) => {
                 if (err) {
                     reject(err);
                 } else {
+                    console.log('Connected to Azure SQL scb database');
                     resolve();
                 }
             });
@@ -45,7 +44,7 @@ class DbContext {
 
     async executeNonQuery(sqlQuery) {
         await this.connect();
-        return new Promise((resolve, reject) => {
+        var result = await new Promise((resolve, reject) => {
             var request = new Request(sqlQuery, (err) => {
                 if (err) {
                     reject(err);
@@ -59,6 +58,7 @@ class DbContext {
 
             this.connection.execSql(request);
         });
+        return result;
     }
 
     async executeStatement(sqlQuery) {
@@ -108,8 +108,6 @@ class DbContext {
         
         return result.length > 0 ? {url: result[0].EndpointUrl, key: result[0].KeyValue} : null;
     }
-
-
 }
 
 module.exports = DbContext;
