@@ -14,14 +14,16 @@ const fs = require('fs-extra');
 
 
 var app = express();
+app.use(cors());
 
-app.use(cors({
-  origin: 'https://happy-bush-0ab015800.6.azurestaticapps.net', // Allow only your frontend
-  methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-  allowedHeaders: 'Content-Type,Authorization'
-}));
+// app.use(cors({
+//   origin: 'https://happy-bush-0ab015800.6.azurestaticapps.net', // Allow only your frontend
+//   methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+//   allowedHeaders: 'Content-Type,Authorization'
+// }));
 
 app.options('*', cors()); // Handle preflight requests
+
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -33,6 +35,50 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/baseline', async function (req, res) {
+  try {
+    if (!(await esContext.verifyClientConnection())) {
+      return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
+    }
+
+    const { query } = "how do i update my limit?";
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
+
+    const result = await esContext.client.search({
+      index: 'dummy_index',
+      body: {
+        query: {
+          multi_match: {
+            query: query,
+            fields: [
+              "fragmentTitle", 
+              "shortDescription", 
+              "faqShortAnswer", 
+              "faqLongAnswer"
+            ]
+          }
+        },
+        size: 3,
+        _source: [
+          "uuid", 
+          "resultType", 
+          "fragmentTitle", 
+          "url", 
+          "shortDescription", 
+          "faqShortAnswer"
+        ]
+      }
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Elasticsearch search error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 app.post('/baseline', async function (req, res) {
   try {
