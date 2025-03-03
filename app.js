@@ -11,6 +11,7 @@ var DbContext = require('./DbContext');
 const dbContext = new DbContext();
 const EsContext = require('./EsContext');
 const esContext = new EsContext(dbContext);
+const fs = require('fs-extra');
 
 
 var app = express();
@@ -26,6 +27,19 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
+
+app.get('/uploadfaqstosqldb', async function (req, res, next) {
+  const faqs = await fs.readJson('./faqs.json');
+  await dbContext.executeNonQuery('TRUNCATE TABLE faqs;');
+
+  for (const faq of faqs) {
+    const question = faq.Question.replace(/'/g, "''");
+    const answer = faq.Answer.replace(/'/g, "''").slice(0, 4000);
+    const sqlQuery = `INSERT INTO faqs (Question, Answer) VALUES ('${question}', '${answer}');`;
+    await dbContext.executeNonQuery(sqlQuery);
+  }
+  res.send('FAQs uploaded to SQL DB');
+});
 
 app.post('/baseline', async function (req, res, next) {  
   if (await esContext.verifyClientConnection()) {
