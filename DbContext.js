@@ -101,10 +101,8 @@ class DbContext {
             join ApiKeys a on c.ClusterId = a.ClusterId
             where c.clusterid = ${clusterId} ;
         `;
-        console.log('sqlQuery', sqlQuery);
         
         const result = await this.executeStatement(sqlQuery);
-        console.log('result', result);
         
         return result.length > 0 ? {url: result[0].EndpointUrl, key: result[0].KeyValue} : null;
     }

@@ -27,38 +27,49 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/uploadfaqstosqldb', async function (req, res, next) {
-  const faqs = await fs.readJson('./faqs.json');
-  await dbContext.executeNonQuery('TRUNCATE TABLE faqs;');
+app.post('/baseline', async function (req, res) {
+  try {
+    if (!(await esContext.verifyClientConnection())) {
+      return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
+    }
 
-  for (const faq of faqs) {
-    const question = faq.Question.replace(/'/g, "''");
-    const answer = faq.Answer.replace(/'/g, "''").slice(0, 4000);
-    const sqlQuery = `INSERT INTO faqs (Question, Answer) VALUES ('${question}', '${answer}');`;
-    await dbContext.executeNonQuery(sqlQuery);
-  }
-  res.send('FAQs uploaded to SQL DB');
-});
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: 'Query parameter is required' });
+    }
 
-app.post('/baseline', async function (req, res, next) {  
-  if (await esContext.verifyClientConnection()) {
     const result = await esContext.client.search({
       index: 'dummy_index',
       body: {
-          "multi_match": {
-            "query": req.body.query,
-            "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer", "faqLongAnswer"]
-          },
-          "size": 3,
-          "_source": ["uuid", "resultType", "fragmentTitle", "url", "shortDescription", "faqShortAnswer"]
+        query: {
+          multi_match: {
+            query: query,
+            fields: [
+              "fragmentTitle", 
+              "shortDescription", 
+              "faqShortAnswer", 
+              "faqLongAnswer"
+            ]
+          }
+        },
+        size: 3,
+        _source: [
+          "uuid", 
+          "resultType", 
+          "fragmentTitle", 
+          "url", 
+          "shortDescription", 
+          "faqShortAnswer"
+        ]
       }
     });
-    res.send(result);
-  }
-  else {
-    res.send('Failed to connect to ElasticSearch');
+    res.json(result);
+  } catch (error) {
+    console.error('Elasticsearch search error:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
 
 
 app.post('/completionsuggestor', async function (req, res, next) {  
@@ -90,25 +101,18 @@ app.post('/completionsuggestor', async function (req, res, next) {
 
 // post endpoint using format: POST /:indexName/_search
 app.post('/:indexName/_search', async function (req, res, next) {
-  console.log('req.params.indexName', req.params.indexName);
-  console.log('req.body', req.body);
-  
-  
   if (await esContext.verifyClientConnection()) {
     const result = await esContext.client.search({
       index: req.params.indexName,
       body: {
-        "suggest": {
-          "autocomplete": {
-            "prefix": req.body.query,
-            "completion": {
-              "field": "fragmentTitleSuggest",
-              "size": 3,
-              "skip_duplicates": true
-            }
+        query: {
+          multi_match: {
+            query: req.body.query,
+            fields: ["fragmentTitleSuggest"]
           }
         },
-        "_source": ["fragmentTitle", "shortDescription", "url"]
+        size: 3,
+        _source: ["fragmentTitle", "shortDescription", "url"]
       }
     });
     res.send(result);
@@ -123,7 +127,6 @@ app.post('/:indexName/_search', async function (req, res, next) {
 app.use('/proxysearch', async function (req, res, next) {
   if (await esContext.verifyClientConnection()) {
     const reqBody = req.body;
-    console.log('reqBody', reqBody);
     const result = await esContext.client.search({
       index: 'main',
       body: reqBody
@@ -145,5 +148,21 @@ app.use(function (err, req, res, next) {
   res.status(err.status || 500);
   res.render('error');
 });
+
+
+app.get('/uploadfaqstosqldb', async function (req, res, next) {
+  const faqs = await fs.readJson('./faqs.json');
+  await dbContext.executeNonQuery('TRUNCATE TABLE faqs;');
+
+  for (const faq of faqs) {
+    const question = faq.Question.replace(/'/g, "''");
+    const answer = faq.Answer.replace(/'/g, "''").slice(0, 4000);
+    const sqlQuery = `INSERT INTO faqs (Question, Answer) VALUES ('${question}', '${answer}');`;
+    await dbContext.executeNonQuery(sqlQuery);
+  }
+  res.send('FAQs uploaded to SQL DB');
+});
+
+
 
 module.exports = app;
