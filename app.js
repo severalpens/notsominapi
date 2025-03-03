@@ -42,10 +42,6 @@ app.get('/baseline', async function (req, res) {
       return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
     }
 
-    if (!query) {
-      return res.status(400).json({ error: 'Query parameter is required' });
-    }
-
     const result = await esContext.client.search({
       index: 'dummy_index',
       body: {
