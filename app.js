@@ -42,7 +42,6 @@ app.get('/baseline', async function (req, res) {
       return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
     }
 
-    const { query } = "how do i update my limit?";
     if (!query) {
       return res.status(400).json({ error: 'Query parameter is required' });
     }
@@ -52,7 +51,7 @@ app.get('/baseline', async function (req, res) {
       body: {
         query: {
           multi_match: {
-            query: query,
+            query: "how do i update my limit?",
             fields: [
               "fragmentTitle", 
               "shortDescription", 
