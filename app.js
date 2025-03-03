@@ -36,6 +36,10 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
+app.get('/', async function (req, res) {
+  res.send("Welcome to notsominapi")
+});
+
 app.get('/baseline', async function (req, res) {
   try {
     if (!(await esContext.verifyClientConnection())) {
