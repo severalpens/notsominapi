@@ -38,6 +38,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', async function (req, res) {
   res.send("Welcome to notsominapi")
 });
+// submitAssessment payload:
+// const body = {
+//   input_query,
+//   result1,
+//   result2,
+//   result3,
+//   resultQuality, 
+//   comments
+// };
+app.post('/submitAssessment', async function (req, res) {
+  const { input_query, result1, result2, result3, resultQuality, comments } = req.body;
+  console.log(req.body);
+  
+  const sql = `INSERT INTO assessments (input_query, result1, result2, result3, resultQuality, comments) VALUES ('${input_query}', '${result1}', '${result2}', '${result3}', '${resultQuality}', '${comments}');`;
+  await connectAndNonQuery(sql);
+  res.send('Assessment submitted');
+});
 
 app.get('/test1', async function (req, res) {
   try {
