@@ -27,8 +27,16 @@ async function connectAndNonQuery(qry){
     } catch (err) {
         console.error(err.message);
     }
-
-
 }
 
-module.exports =     connectAndNonQuery
+async function connectAndQuery(qry){
+    try {
+        var poolConnection = await sql.connect(config);
+        const result = await poolConnection.request().query(qry);
+        return result.recordset;
+    } catch (err) {
+        console.error(err.message);
+    }
+}
+
+module.exports =     {connectAndQuery, connectAndNonQuery}

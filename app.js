@@ -11,7 +11,7 @@ const dbContext = new DbContext();
 const EsContext = require('./EsContext');
 const esContext = new EsContext(dbContext);
 const fs = require('fs-extra');
-const connectAndNonQuery = require('./MsSqlContext');
+const {connectAndQuery, connectAndNonQuery} = require('./MsSqlContext');
 var app = express();
 app.use(cors());
 
@@ -48,12 +48,25 @@ app.get('/', async function (req, res) {
 //   comments
 // };
 app.post('/submitAssessment', async function (req, res) {
-  const { input_query, result1, result2, result3, resultQuality, comments } = req.body;
-  console.log(req.body);
-  
-  const sql = `INSERT INTO assessments (input_query, result1, result2, result3, resultQuality, comments) VALUES ('${input_query}', '${result1}', '${result2}', '${result3}', '${resultQuality}', '${comments}');`;
+  const { sql } = req.body;
+  console.log(sql);
   await connectAndNonQuery(sql);
   res.send('Assessment submitted');
+});
+
+app.get('/getAssessments', async function (req, res) {
+  const sql = 'SELECT distinct search_term FROM assessments;';
+  const result = await connectAndQuery(sql);
+  const searchTerms = result.map(r => r.search_term);
+  res.send(searchTerms);
+});
+
+
+app.get('/getRandomQuestions', async function (req, res) {
+  const sql = 'SELECT distinct search_term FROM randomQuestions where search_term not in (select distinct search_term from assessments);';
+  const result = await connectAndQuery(sql);
+  const searchTerms = result.map(r => r.search_term);
+  res.send(searchTerms);
 });
 
 app.get('/test1', async function (req, res) {
