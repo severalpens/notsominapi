@@ -182,7 +182,7 @@ VALUES ('${search_id}','${result_id}', '${insert_date}', '${search_term}', '${ex
       await connectAndNonQuery(sql);
     }
   }
-  res.send('completed');
+  res.send(result);
 });
 
 app.post('/submitAssessment', async function (req, res) {
