@@ -63,10 +63,10 @@ app.get('/getAssessments', async function (req, res) {
 
 
 app.get('/getRandomQuestions', async function (req, res) {
-  const sql = 'SELECT distinct search_term FROM randomQuestions where search_term not in (select distinct search_term from assessments);';
+  const sql = 'SELECT distinct id, search_term, expected_result FROM randomQuestions where search_term not in (select distinct search_term from assessments) order by id;';
   const result = await connectAndQuery(sql);
-  const searchTerms = result.map(r => r.search_term);
-  res.send(searchTerms);
+  console.log(result);
+  res.send(result);
 });
 
 app.get('/test1', async function (req, res) {
