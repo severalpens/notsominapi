@@ -1,44 +1,14 @@
-WITH q1 AS (
-    SELECT  top 100000
-	t1.id questionid,
-	t2.id testresultid,
-        t1.question AS input_query,  
-        t1.questionSource, 
-        t2.faqShortAnswer, 
-        t2.shortDescription, 
-        t2.fragmentTitle,
-        t2.chatgptscore AS score,
-        ROW_NUMBER() OVER (PARTITION BY t1.question ORDER BY t1.id, t2.id asc) AS result_rank
-    FROM 
-        testquestions t1 
-    JOIN 
-        testresults t2 
-    ON 
-        t1.id = t2.QuestionId
-		where t2.chatgptscore is not null
-		order by t2.id
-)
-SELECT
-    input_query,
-    MAX(CASE WHEN result_rank = 1 THEN fragmentTitle END) AS result_1_title,
-    -- You can add a type column here if it exists in your data
-    MAX(CASE WHEN result_rank = 1 THEN 'FAQ' END) AS result_1_type,
-    MAX(CASE WHEN result_rank = 1 THEN shortDescription END) AS result_1_short_description,
-    MAX(CASE WHEN result_rank = 1 THEN faqShortAnswer END) AS result_1_faq_short_answer,
-    MAX(CASE WHEN result_rank = 1 THEN score END) AS result_1_score,
-    
-    MAX(CASE WHEN result_rank = 2 THEN fragmentTitle END) AS result_2_title,
-    MAX(CASE WHEN result_rank = 2 THEN 'FAQ' END) AS result_2_type,
-    MAX(CASE WHEN result_rank = 2 THEN shortDescription END) AS result_2_short_description,
-    MAX(CASE WHEN result_rank = 2 THEN faqShortAnswer END) AS result_2_faq_short_answer,
-    MAX(CASE WHEN result_rank = 2 THEN score END) AS result_2_score,
-    
-    MAX(CASE WHEN result_rank = 3 THEN fragmentTitle END) AS result_3_title,
-    MAX(CASE WHEN result_rank = 3 THEN 'FAQ' END) AS result_3_type,
-    MAX(CASE WHEN result_rank = 3 THEN shortDescription END) AS result_3_short_description,
-    MAX(CASE WHEN result_rank = 3 THEN faqShortAnswer END) AS result_3_faq_short_answer,
-    MAX(CASE WHEN result_rank = 3 THEN score END) AS result_3_score
-FROM 
-    q1
-GROUP BY 
-    input_query
+select * from SearchQueryTestSet;
+select * from SearchQueryTestResults 
+select * from assessments
+
+update t1
+set t1.is_match = max(t2.ismatch)
+
+select t1.search_id, t1.result_quality, max(t2.is_match)
+from SearchQueryTestSet t1
+join SearchQueryTestResults t2 on t1.search_id = t2.search_id
+group by t1.search_id, t1.result_quality
+
+INSERT INTO SearchQueryTestResults
+VALUES ('TC003','3', '2025-03-06T01:02:12.920Z', 'travel overseas notification', 'Alert us that you are travelling, Do I need to notify Suncorp Bank when I'm going overseas?','good', 'Do I need to notify Suncorp Bank when I`m going overseas?', 'FAQ', 'Information about notifying Suncorp Bank of international travel.', 'We recommend letting us know when you are travelling internationally. This helps our fraud monitoring team recognise your overseas transactions as legitimate, reducing the chance of your card being temporarily blocked for suspicious activity. You can notify us directly in the Suncorp App by tapping `More`, then `Self service`, `Profile` and selecting `Alert us that you are travelling`. Alternatively, you can call us on 13 11 55. Remember to also ensure your contact details are up to date so we can reach you while you`re away if needed.', '3.5317419');

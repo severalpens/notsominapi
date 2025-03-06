@@ -9,68 +9,71 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { Client } = require('@elastic/elasticsearch');
 const chalk = require('chalk');
-
+const DbContext = require('./dbContext');
+const dbContext = new DbContext();
 
 class EsContext {
-    userProps = {
-         url: process.env.ELASTICSEARCH_URL, 
-         username: process.env.ELASTICSEARCH_USERNAME, 
-         password: process.env.ELASTICSEARCH_PASSWORD
-        };
-    client = null;
-    
-    getAllData = async (indexName) => {
-      const result = await this.client.search({
-        index: indexName,
-        body: {
-          query: {
-            match_all: {}
-          }
+  userProps = {
+    url: process.env.ELASTICSEARCH_URL,
+    username: process.env.ELASTICSEARCH_USERNAME,
+    password: process.env.ELASTICSEARCH_PASSWORD
+  };
+  client = null;
+
+  getAllData = async (indexName) => {
+    const result = await this.client.search({
+      index: indexName,
+      body: {
+        query: {
+          match_all: {}
         }
-      });
-      fs.writeFileSync('data.json', JSON.stringify(result.hits.hits));
-      console.log('Data written to data.json');  
-    }
+      }
+    });
+    fs.writeFileSync('data.json', JSON.stringify(result.hits.hits));
+    console.log('Data written to data.json');
+  }
 
-    setConnectionDetails = async () => {
+  setConnectionDetails = async () => {
 
-            this.client = new Client({
-                node: this.userProps.url,
-                auth: {
-                    username: this.userProps.username,
-                    password: this.userProps.password
-                },
-                tls: {
-                    rejectUnauthorized: false
-                }
-            });
-    }
+    this.client = new Client({
+      node: this.userProps.url,
+      auth: {
+        username: this.userProps.username,
+        password: this.userProps.password
+      },
+      tls: {
+        rejectUnauthorized: false
+      }
+    });
+  }
 
-    verifyClientConnection = async () => {
-        let isConnected = false;
-        try {
-            const resp = await this.client.info();
-             console.log(chalk.green(`Connected to ElasticSearch user: ${this.userProps.username}`));
-            isConnected = true;
-            return isConnected;
-        }
-        catch (e) {
-            console.log(chalk.red(`Failed to connect to ElasticSearch using user credentials: ${JSON.stringify(this.userProps)}`)) ;
-            console.log(e);
-            isConnected = false;
-            return isConnected;
-        }
-    };
+  verifyClientConnection = async () => {
+    let isConnected = false;
+    try {
+      const resp = await this.client.info();
+      console.log(chalk.green(`Connected to ElasticSearch user: ${this.userProps.username}`));
+      isConnected = true;
+      return isConnected;
+    }
+    catch (e) {
+      console.log(chalk.red(`Failed to connect to ElasticSearch using user credentials: ${JSON.stringify(this.userProps)}`));
+      console.log(e);
+      isConnected = false;
+      return isConnected;
+    }
+  };
 
-    init = async () => {
-        await this.setConnectionDetails();
-        await this.verifyClientConnection();
-    }
-    constructor(dbContext) {
-        this.dbContext = dbContext;
-        this.init();
-    }
+  init = async () => {
+    await this.setConnectionDetails();
+    await this.verifyClientConnection();
+  }
+  constructor(dbContext) {
+    this.dbContext = dbContext;
+    this.init();
+  }
 }
+
+const esContext = new EsContext(dbContext);
 
 
 var app = express();
@@ -79,39 +82,40 @@ app.options('*', cors());
 const sql = require('mssql');
 
 const config = {
-    user: process.env.AZURE_SQL_USER, // better stored in an app setting such as process.env.DB_USER
-    password: process.env.AZURE_SQL_PASSWORD, // better stored in an app setting such as process.env.DB_PASSWORD
-    server: process.env.AZURE_SQL_SERVER, // better stored in an app setting such as process.env.DB_SERVER
-    port: 1433, // optional, defaults to 1433, better stored in an app setting such as process.env.DB_PORT
-    database: process.env.AZURE_SQL_DATABASE, // better stored in an app setting such as process.env.DB_NAME
-    authentication: {
-        type: 'default'
-    },
-    options: {
-        encrypt: true
-    }
+  user: process.env.AZURE_SQL_USER, // better stored in an app setting such as process.env.DB_USER
+  password: process.env.AZURE_SQL_PASSWORD, // better stored in an app setting such as process.env.DB_PASSWORD
+  server: process.env.AZURE_SQL_SERVER, // better stored in an app setting such as process.env.DB_SERVER
+  port: 1433, // optional, defaults to 1433, better stored in an app setting such as process.env.DB_PORT
+  database: process.env.AZURE_SQL_DATABASE, // better stored in an app setting such as process.env.DB_NAME
+  authentication: {
+    type: 'default'
+  },
+  options: {
+    encrypt: true
+  }
 }
 
 
-async function connectAndNonQuery(qry){
-    try {
-        var poolConnection = await sql.connect(config);
-        await poolConnection.request().query(qry);
-        console.log("New record inserted.");
+async function connectAndNonQuery(qry) {
+  try {
+    var poolConnection = await sql.connect(config);
+    await poolConnection.request().query(qry);
+    console.log("New record inserted.");
 
-    } catch (err) {
-        console.error(err.message);
-    }
+  } catch (err) {
+    console.error(err.message);
+    console.log(qry);
+  }
 }
 
-async function connectAndQuery(qry){
-    try {
-        var poolConnection = await sql.connect(config);
-        const result = await poolConnection.request().query(qry);
-        return result.recordset;
-    } catch (err) {
-        console.error(err.message);
-    }
+async function connectAndQuery(qry) {
+  try {
+    var poolConnection = await sql.connect(config);
+    const result = await poolConnection.request().query(qry);
+    return result.recordset;
+  } catch (err) {
+    console.error(err.message);
+  }
 }
 
 app.use(bodyParser.json());
@@ -132,8 +136,8 @@ app.get('/', async function (req, res) {
 
 app.get('/runTests', async function (req, res) {
   let insert_date = new Date().toISOString();
-  const sql = 'SELECT * FROM SearchQueryTestSet;';
-  const searchQueryTestSet = await connectAndQuery(sql);
+  await connectAndNonQuery("truncate table SearchQueryTestResults;");
+  const searchQueryTestSet = await connectAndQuery('SELECT * FROM SearchQueryTestSet;');
   for (const searchQueryTest of searchQueryTestSet) {
     const { Id, search_id, search_term, expected_results } = searchQueryTest;
     const result = await esContext.client.search({
@@ -162,24 +166,63 @@ app.get('/runTests', async function (req, res) {
       }
     });
     let result_id = 0;
+    let isMatch = "";
     for (const hit of result.hits.hits) {
       result_id++;
       const { _source, _score } = hit;
       const { resultType, fragmentTitle, shortDescription, faqShortAnswer } = _source;
-      const title = fragmentTitle ? fragmentTitle.replace(/'/g, "''") : '';
-      const type = resultType ? resultType.replace(/'/g, "''") : '';
-      const description = shortDescription ? shortDescription.replace(/'/g, "''") : '';
-      const answer = faqShortAnswer ? faqShortAnswer.replace(/'/g, "''") : '';
-      const isMatch = expected_results.includes(title) ;
+      const title = fragmentTitle ? fragmentTitle.replace(/'/g, "`") : '';
+      const type = resultType ? resultType.replace(/'/g, `"`) : "`";
+      const description = shortDescription ? shortDescription.replace(/'/g, "`") : '';
+      const answer = faqShortAnswer ? faqShortAnswer.replace(/'/g, "`") : '';
+      const tmpIsMatch = expected_results.includes(title);
+      if (tmpIsMatch && result_id === 1) {
+        isMatch = "3";
+      }
+      if (tmpIsMatch && result_id === 2 && isMatch == "") {
+        isMatch = "2";
+      }
+      if (tmpIsMatch && result_id === 3 && isMatch == "") {
+        isMatch = "1";
+      }
+      if (!tmpIsMatch && result_id === 3 && isMatch == "") {
+        isMatch = "0";
+      }
 
       const sql = `
-INSERT INTO SearchQueryTestResults  
-VALUES ('${search_id}','${result_id}', '${insert_date}', '${search_term}', '${expected_results}','${isMatch}', '${title}', '${type}', '${description}', '${answer}', '${_score}');
-`;
-      
-      console.log(sql);
+            INSERT INTO SearchQueryTestResults  
+            VALUES ('${search_id}','${result_id}', '${insert_date}', '${search_term.replace(/'/g, `"`)}', '${expected_results.replace(/'/g, `"`)}','${isMatch}', '${title.replace(/'/g, `"`)}', '${type}', '${description.replace(/'/g, `"`)}', '${answer.replace(/'/g, `"`)}', '${_score}');
+          `;    
 
       await connectAndNonQuery(sql);
+
+      await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_quality = '${isMatch}' WHERE search_id = '${search_id}';`);
+      await connectAndNonQuery(`UPDATE SearchQueryTestSet SET update_date = '${insert_date}' WHERE search_id = '${search_id}';`);
+      switch (result_id) {
+        case 1:
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_title = '${title.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_type = '${type}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_short_description = '${description.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);   
+           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_faq_short_answer = '${answer.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_es_score = '${_score}' WHERE search_id = '${search_id}';`);
+          break
+        case 2:
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_title = '${title.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_type = '${type}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_short_description = '${description.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_faq_short_answer = '${answer.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_es_score = '${_score}' WHERE search_id = '${search_id}';`);
+          break;
+        case 3:
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_title = '${title.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_type = '${type}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_short_description = '${description.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_faq_short_answer = '${answer.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_es_score = '${_score}' WHERE search_id = '${search_id}';`);
+          break;
+        default:
+          break;
+      }
     }
   }
   res.send('completed');
@@ -200,7 +243,7 @@ app.get('/getAssessments', async function (req, res) {
 
 
 app.get('/getRandomQuestions', async function (req, res) {
-  const sql = 'SELECT distinct id, search_term, expected_result FROM randomQuestions where search_term not in (select distinct search_term from assessments) order by id;';
+  const sql = 'SELECT distinct id, search_term, expected_result FROM archive.randomQuestions  order by id;';
   const result = await connectAndQuery(sql);
   console.log(result);
   res.send(result);
