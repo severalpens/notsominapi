@@ -136,7 +136,7 @@ app.get('/', async function (req, res) {
 
 app.get('/runTests', async function (req, res) {
   let insert_date = new Date().toISOString();
-  await connectAndNonQuery("truncate table SearchQueryTestResults;");
+  // await connectAndNonQuery("truncate table SearchQueryTestResults;");
   const searchQueryTestSet = await connectAndQuery('SELECT * FROM SearchQueryTestSet;');
   for (const searchQueryTest of searchQueryTestSet) {
     const { Id, search_id, search_term, expected_results } = searchQueryTest;
@@ -171,10 +171,10 @@ app.get('/runTests', async function (req, res) {
       result_id++;
       const { _source, _score } = hit;
       const { resultType, fragmentTitle, shortDescription, faqShortAnswer } = _source;
-      const title = fragmentTitle ? fragmentTitle.replace(/'/g, "`") : '';
-      const type = resultType ? resultType.replace(/'/g, `"`) : "`";
-      const description = shortDescription ? shortDescription.replace(/'/g, "`") : '';
-      const answer = faqShortAnswer ? faqShortAnswer.replace(/'/g, "`") : '';
+      const title = fragmentTitle ? fragmentTitle : '';
+      const type = resultType ? resultType: '';
+      const description = shortDescription ? shortDescription : '';
+      const answer = faqShortAnswer ? faqShortAnswer : '';
       const tmpIsMatch = expected_results.includes(title);
       if (tmpIsMatch && result_id === 1) {
         isMatch = "3";
@@ -200,24 +200,24 @@ app.get('/runTests', async function (req, res) {
       await connectAndNonQuery(`UPDATE SearchQueryTestSet SET update_date = '${insert_date}' WHERE search_id = '${search_id}';`);
       switch (result_id) {
         case 1:
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_title = '${title.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_type = '${type}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_short_description = '${description.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);   
-           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_faq_short_answer = '${answer.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);   
+           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
            await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_es_score = '${_score}' WHERE search_id = '${search_id}';`);
           break
         case 2:
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_title = '${title.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_type = '${type}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_short_description = '${description.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_faq_short_answer = '${answer.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_es_score = '${_score}' WHERE search_id = '${search_id}';`);
           break;
         case 3:
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_title = '${title.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_type = '${type}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_short_description = '${description.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_faq_short_answer = '${answer.replace(/'/g, "`")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_es_score = '${_score}' WHERE search_id = '${search_id}';`);
           break;
         default:
@@ -229,9 +229,10 @@ app.get('/runTests', async function (req, res) {
 });
 
 app.post('/submitAssessment', async function (req, res) {
-  const { sql } = req.body;
-  console.log(sql);
+  const { sql, search_term } = req.body;
   await connectAndNonQuery(sql);
+  await connectAndNonQuery(`UPDATE SearchQueryTestSet SET assessed = '${new Date().toISOString()}' WHERE search_term = '${search_term}';`);
+  await connectAndNonQuery(`update t1 set t1.search_id = t2.search_id from Assessments t1 join SearchQueryTestSet t2 on t1.search_term = t2.search_term  AND search_term = '${search_term}';`);
   res.send('Assessment submitted');
 });
 
@@ -245,7 +246,11 @@ app.get('/getAssessments', async function (req, res) {
 app.get('/getRandomQuestions', async function (req, res) {
   const sql = 'SELECT distinct id, search_term, expected_result FROM archive.randomQuestions  order by id;';
   const result = await connectAndQuery(sql);
-  console.log(result);
+  res.send(result);
+});
+app.get('/GetSearchQueryTestSet', async function (req, res) {
+  const sql = 'SELECT distinct id, search_id,  search_term, expected_results, result_quality, assessed FROM SearchQueryTestSet  order by id;';
+  const result = await connectAndQuery(sql);
   res.send(result);
 });
 
