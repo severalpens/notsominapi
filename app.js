@@ -232,7 +232,7 @@ app.post('/submitAssessment', async function (req, res) {
   const { sql, search_term } = req.body;
   await connectAndNonQuery(sql);
   await connectAndNonQuery(`UPDATE SearchQueryTestSet SET assessed = '${new Date().toISOString()}' WHERE search_term = '${search_term}';`);
-  await connectAndNonQuery(`update t1 set t1.search_id = t2.search_id from Assessments t1 join SearchQueryTestSet t2 on t1.search_term = t2.search_term  AND search_term = '${search_term}';`);
+  // await connectAndNonQuery(`update t1 set t1.search_id = t2.search_id from Assessments t1 join SearchQueryTestSet t2 on t1.search_term = t2.search_term  AND search_term = '${search_term}';`);
   res.send('Assessment submitted');
 });
 
