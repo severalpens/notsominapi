@@ -135,8 +135,15 @@ app.get('/', async function (req, res) {
 });
 
 app.get('/runTests', async function (req, res) {
-  let insert_date = new Date().toISOString();
-  // await connectAndNonQuery("truncate table SearchQueryTestResults;");
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  let tm = new Date();
+  let insert_date = tm.toISOString();
+  const timestampSuffix = `${tm.getFullYear()}${String(tm.getMonth() + 1).padStart(2, '0')}${String(tm.getDate()).padStart(2, '0')}${String(tm.getHours()).padStart(2, '0')}${String(tm.getMinutes()).padStart(2, '0')}${String(tm.getSeconds()).padStart(2, '0')}`;
+  await connectAndNonQuery(`insert into archive.SearchQueryTestSet${timestampSuffix} select * from SearchQueryTestSet;`);
+  await connectAndNonQuery(`truncate table SearchQueryTestResults;`);
+
   const searchQueryTestSet = await connectAndQuery('SELECT * FROM SearchQueryTestSet;');
   for (const searchQueryTest of searchQueryTestSet) {
     const { Id, search_id, search_term, expected_results } = searchQueryTest;
@@ -223,9 +230,13 @@ app.get('/runTests', async function (req, res) {
         default:
           break;
       }
+
+      // Send update to client
+      res.write(`data: ${JSON.stringify({ search_id, result_id, title, type, description, answer, _score, isMatch })}\n\n`);
     }
   }
-  res.send('completed');
+  res.write('data: completed\n\n');
+  res.end();
 });
 
 app.post('/submitAssessment', async function (req, res) {
