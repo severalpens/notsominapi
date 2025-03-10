@@ -57,8 +57,6 @@ async function sqlNonQuery(qry) {
   }
 }
 
-
-
 class EsContext {
   userProps = {
     url: process.env.ELASTICSEARCH_URL,
@@ -121,7 +119,6 @@ class EsContext {
 
 const esContext = new EsContext();
 
-
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
@@ -134,15 +131,10 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-// app.get('/', async function (req, res) {
-//   res.send("Welcome to notsominapi")
-// });
 var indexRouter = require('./routes/index');
-var usersRouter = require('./routes/users');
 var endpointRouter = require('./routes/endpoints');
 
 app.use('/', indexRouter);
-app.use('/users', usersRouter);
 app.use('/endpoints', endpointRouter);
 
 app.get('/runTests', async function (req, res) {
