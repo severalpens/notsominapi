@@ -1,23 +1,34 @@
 select * from SearchQueryTestSet;
-select * from SearchQueryTestResults  where search_id = 'tc001';
-select *  from  assessments;
+select * from AutomatedTestResults  where search_id = 'tc001';
+select *  from  ManualReviews;
 
-select * into archive.SearchQueryTestResults from SearchQueryTestResults;
+create table DummyIndex(
+Id int not null primary key identity(1,1),
+name varchar(4000)
+);
+
+
+alter schema dbo
+transfer tst.DummyIndex;
+
+
+select * into archive.SearchQueryTestResults20250309161800 from SearchQueryTestResults;
 
 truncate table SearchQueryTestResults;
 
-drop table assessments;
+drop table ManualReviews;
 
-create table assessments(
+create table ManualReviews(
 Id int not null primary key identity(1,1),
 insert_date varchar(4000),
 update_date varchar(4000),
 testset_date varchar(4000),
 search_term varchar(4000),
-result_quality varchar(4000),
-manual_result_quality varchar(4000),
-preferred_answer_position varchar(4000),
-failure_reason varchar(4000),
+result_1_title varchar(4000),
+result_2_title varchar(4000),
+result_3_title varchar(4000),
+automated_result varchar(4000),
+manual_result varchar(4000),
 is_interesting varchar(4000),
 comments varchar(4000),
 reference varchar(400)
