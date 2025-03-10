@@ -141,9 +141,9 @@ app.get('/runTests', async function (req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  let tm = new Date();
-  let insert_date = tm.toISOString();
-  const timestampSuffix = `${tm.getFullYear()}${String(tm.getMonth() + 1).padStart(2, '0')}${String(tm.getDate()).padStart(2, '0')}${String(tm.getHours()).padStart(2, '0')}${String(tm.getMinutes()).padStart(2, '0')}${String(tm.getSeconds()).padStart(2, '0')}`;
+  let dt = new Date();
+  let insert_date = dt.toISOString();
+  const timestampSuffix = `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}${String(dt.getHours()).padStart(2, '0')}${String(dt.getMinutes()).padStart(2, '0')}${String(dt.getSeconds()).padStart(2, '0')}`;
   await sqlNonQuery(`insert into archive.SearchQueryTestSet${timestampSuffix} select * from tst.SearchQueryTestSet;`);
   await sqlNonQuery(`truncate table tst.AutomatedTestResults;`);
 
@@ -175,8 +175,10 @@ app.get('/runTests', async function (req, res) {
         ]
       }
     });
+
     let result_id = 0;
     let isMatch = "";
+
     for (const hit of result.hits.hits) {
       result_id++;
       const { _source, _score } = hit;
@@ -199,15 +201,16 @@ app.get('/runTests', async function (req, res) {
         isMatch = "0";
       }
 
-      const sql = `
+      const addTestResultSql = `
             INSERT INTO tst.AutomatedTestResults  
             VALUES ('${search_id}','${result_id}', '${insert_date}', '${search_term.replace(/'/g, `"`)}', '${expected_results.replace(/'/g, `"`)}','${isMatch}', '${title.replace(/'/g, `"`)}', '${type}', '${description.replace(/'/g, `"`)}', '${answer.replace(/'/g, `"`)}', '${_score}');
           `;
 
-      await sqlNonQuery(sql);
 
+      await sqlNonQuery(addTestResultSql);
       await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_quality = '${isMatch}' WHERE search_id = '${search_id}';`);
       await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET update_date = '${insert_date}' WHERE search_id = '${search_id}';`);
+      
       switch (result_id) {
         case 1:
           await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_1_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
@@ -246,9 +249,9 @@ app.post('/submitAssessment', async function (req, res) {
   const { sql, search_term } = req.body;
   await sqlNonQuery(sql);
   await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET assessed = '${new Date().toISOString()}' WHERE search_term = '${search_term}';`);
-  // await connectAndNonQuery(`update t1 set t1.search_id = t2.search_id from Assessments t1 jointst.SearchQueryTestSet t2 on t1.search_term = t2.search_term  AND search_term = '${search_term}';`);
   res.send('Assessment submitted');
 });
+
 
 app.get('/getAssessments', async function (req, res) {
   const sql = 'SELECT * FROM assessments;';
