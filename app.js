@@ -9,8 +9,55 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { Client } = require('@elastic/elasticsearch');
 const chalk = require('chalk');
-const DbContext = require('./dbContext');
-const dbContext = new DbContext();
+
+var app = express();
+app.use(cors());
+app.options('*', cors());
+const sql = require('mssql');
+
+const dbConfig = {
+  user: process.env.DB_USER, // better stored in an app setting such as process.env.DB_USER
+  password: process.env.DB_PASSWORD, // better stored in an app setting such as process.env.DB_PASSWORD
+  server: process.env.DB_SERVER, // better stored in an app setting such as process.env.DB_SERVER
+  port: 1433, // optional, defaults to 1433, better stored in an app setting such as process.env.DB_PORT
+  database: process.env.DB_NAME, // better stored in an app setting such as process.env.DB_NAME
+  authentication: {
+    type: 'default'
+  },
+  options: {
+    encrypt: true
+  }
+}
+
+async function sqlQuery(qry) {
+  try {
+    var poolConnection =  sql.connect(dbConfig);
+    const result = await poolConnection.request().query(qry);
+    return result.recordset;
+  } catch (err) {
+    console.error(err.message);
+  }
+  finally {
+    sql.close();
+  }
+}
+
+async function sqlNonQuery(qry) {
+  try {
+    var poolConnection =  sql.connect(dbConfig);
+    await poolConnection.request().query(qry);
+    console.log("New record inserted.");
+
+  } catch (err) {
+    console.error(err.message);
+    console.log(qry);
+  }
+  finally {
+    sql.close();
+  }
+}
+
+
 
 class EsContext {
   userProps = {
@@ -67,56 +114,13 @@ class EsContext {
     await this.setConnectionDetails();
     await this.verifyClientConnection();
   }
-  constructor(dbContext) {
-    this.dbContext = dbContext;
+  constructor() {
     this.init();
   }
 }
 
-const esContext = new EsContext(dbContext);
+const esContext = new EsContext();
 
-
-var app = express();
-app.use(cors());
-app.options('*', cors());
-const sql = require('mssql');
-
-const config = {
-  user: process.env.AZURE_SQL_USER, // better stored in an app setting such as process.env.DB_USER
-  password: process.env.AZURE_SQL_PASSWORD, // better stored in an app setting such as process.env.DB_PASSWORD
-  server: process.env.AZURE_SQL_SERVER, // better stored in an app setting such as process.env.DB_SERVER
-  port: 1433, // optional, defaults to 1433, better stored in an app setting such as process.env.DB_PORT
-  database: process.env.AZURE_SQL_DATABASE, // better stored in an app setting such as process.env.DB_NAME
-  authentication: {
-    type: 'default'
-  },
-  options: {
-    encrypt: true
-  }
-}
-
-
-async function connectAndNonQuery(qry) {
-  try {
-    var poolConnection = await sql.connect(config);
-    await poolConnection.request().query(qry);
-    console.log("New record inserted.");
-
-  } catch (err) {
-    console.error(err.message);
-    console.log(qry);
-  }
-}
-
-async function connectAndQuery(qry) {
-  try {
-    var poolConnection = await sql.connect(config);
-    const result = await poolConnection.request().query(qry);
-    return result.recordset;
-  } catch (err) {
-    console.error(err.message);
-  }
-}
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -130,9 +134,16 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', async function (req, res) {
-  res.send("Welcome to notsominapi")
-});
+// app.get('/', async function (req, res) {
+//   res.send("Welcome to notsominapi")
+// });
+var indexRouter = require('./routes/index');
+var usersRouter = require('./routes/users');
+var endpointRouter = require('./routes/endpoints');
+
+app.use('/', indexRouter);
+app.use('/users', usersRouter);
+app.use('/endpoints', endpointRouter);
 
 app.get('/runTests', async function (req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -141,10 +152,10 @@ app.get('/runTests', async function (req, res) {
   let tm = new Date();
   let insert_date = tm.toISOString();
   const timestampSuffix = `${tm.getFullYear()}${String(tm.getMonth() + 1).padStart(2, '0')}${String(tm.getDate()).padStart(2, '0')}${String(tm.getHours()).padStart(2, '0')}${String(tm.getMinutes()).padStart(2, '0')}${String(tm.getSeconds()).padStart(2, '0')}`;
-  await connectAndNonQuery(`insert into archive.SearchQueryTestSet${timestampSuffix} select * from SearchQueryTestSet;`);
-  await connectAndNonQuery(`truncate table SearchQueryTestResults;`);
+  await sqlNonQuery(`insert into archive.SearchQueryTestSet${timestampSuffix} select * from tst.SearchQueryTestSet;`);
+  await sqlNonQuery(`truncate table tst.AutomatedTestResults;`);
 
-  const searchQueryTestSet = await connectAndQuery('SELECT * FROM SearchQueryTestSet;');
+  const searchQueryTestSet = await sqlQuery('SELECT * FROM tst.SearchQueryTestSet;');
   for (const searchQueryTest of searchQueryTestSet) {
     const { Id, search_id, search_term, expected_results } = searchQueryTest;
     const result = await esContext.client.search({
@@ -179,7 +190,7 @@ app.get('/runTests', async function (req, res) {
       const { _source, _score } = hit;
       const { resultType, fragmentTitle, shortDescription, faqShortAnswer } = _source;
       const title = fragmentTitle ? fragmentTitle : '';
-      const type = resultType ? resultType: '';
+      const type = resultType ? resultType : '';
       const description = shortDescription ? shortDescription : '';
       const answer = faqShortAnswer ? faqShortAnswer : '';
       const tmpIsMatch = expected_results.includes(title);
@@ -197,35 +208,35 @@ app.get('/runTests', async function (req, res) {
       }
 
       const sql = `
-            INSERT INTO SearchQueryTestResults  
+            INSERT INTO tst.AutomatedTestResults  
             VALUES ('${search_id}','${result_id}', '${insert_date}', '${search_term.replace(/'/g, `"`)}', '${expected_results.replace(/'/g, `"`)}','${isMatch}', '${title.replace(/'/g, `"`)}', '${type}', '${description.replace(/'/g, `"`)}', '${answer.replace(/'/g, `"`)}', '${_score}');
-          `;    
+          `;
 
-      await connectAndNonQuery(sql);
+      await sqlNonQuery(sql);
 
-      await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_quality = '${isMatch}' WHERE search_id = '${search_id}';`);
-      await connectAndNonQuery(`UPDATE SearchQueryTestSet SET update_date = '${insert_date}' WHERE search_id = '${search_id}';`);
+      await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_quality = '${isMatch}' WHERE search_id = '${search_id}';`);
+      await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET update_date = '${insert_date}' WHERE search_id = '${search_id}';`);
       switch (result_id) {
         case 1:
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_type = '${type}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);   
-           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-           await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_1_es_score = '${_score}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_1_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_1_type = '${type}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_1_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_1_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_1_es_score = '${_score}' WHERE search_id = '${search_id}';`);
           break
         case 2:
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_type = '${type}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_2_es_score = '${_score}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_2_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_2_type = '${type}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_2_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_2_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_2_es_score = '${_score}' WHERE search_id = '${search_id}';`);
           break;
         case 3:
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_type = '${type}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
-          await connectAndNonQuery(`UPDATE SearchQueryTestSet SET result_3_es_score = '${_score}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_3_title = '${title.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_3_type = '${type}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_3_short_description = '${description.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_3_faq_short_answer = '${answer.replace(/'/g, "''")}' WHERE search_id = '${search_id}';`);
+          await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET result_3_es_score = '${_score}' WHERE search_id = '${search_id}';`);
           break;
         default:
           break;
@@ -241,27 +252,28 @@ app.get('/runTests', async function (req, res) {
 
 app.post('/submitAssessment', async function (req, res) {
   const { sql, search_term } = req.body;
-  await connectAndNonQuery(sql);
-  await connectAndNonQuery(`UPDATE SearchQueryTestSet SET assessed = '${new Date().toISOString()}' WHERE search_term = '${search_term}';`);
-  // await connectAndNonQuery(`update t1 set t1.search_id = t2.search_id from Assessments t1 join SearchQueryTestSet t2 on t1.search_term = t2.search_term  AND search_term = '${search_term}';`);
+  await sqlNonQuery(sql);
+  await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET assessed = '${new Date().toISOString()}' WHERE search_term = '${search_term}';`);
+  // await connectAndNonQuery(`update t1 set t1.search_id = t2.search_id from Assessments t1 jointst.SearchQueryTestSet t2 on t1.search_term = t2.search_term  AND search_term = '${search_term}';`);
   res.send('Assessment submitted');
 });
 
 app.get('/getAssessments', async function (req, res) {
   const sql = 'SELECT * FROM assessments;';
-  const result = await connectAndQuery(sql);
+  const result = await sqlQuery(sql);
   res.send(result);
 });
 
 
 app.get('/getRandomQuestions', async function (req, res) {
   const sql = 'SELECT distinct id, search_term, expected_result FROM archive.randomQuestions  order by id;';
-  const result = await connectAndQuery(sql);
+  const result = await sqlQuery(sql);
   res.send(result);
 });
+
 app.get('/GetSearchQueryTestSet', async function (req, res) {
-  const sql = 'SELECT distinct id, search_id,  search_term, expected_results, result_quality, assessed FROM SearchQueryTestSet  order by id;';
-  const result = await connectAndQuery(sql);
+  const sql = 'SELECT distinct id, search_id,  search_term, expected_results, result_quality, assessed FROM tst.SearchQueryTestSet  order by id;';
+  const result = await sqlQuery(sql);
   res.send(result);
 });
 
@@ -308,7 +320,7 @@ app.get('/test1', async function (req, res) {
         var shortDescription = answer._source.shortDescription ? answer._source.shortDescription.replace(/'/g, "''") : '';
         var fragmentTitle = answer._source.fragmentTitle ? answer._source.fragmentTitle.replace(/'/g, "''") : '';
         var sql = `INSERT INTO testresults (QuestionId, Question, faqShortAnswer,shortDescription,fragmentTitle) VALUES ('${questionId}', '${question}', '${faqShortAnswer}', '${shortDescription}', '${fragmentTitle}');`;
-        await connectAndNonQuery(sql);
+        await sqlNonQuery(sql);
 
       }
 
@@ -546,17 +558,16 @@ app.use(function (err, req, res, next) {
 
 app.get('/uploadfaqstosqldb', async function (req, res, next) {
   const faqs = await fs.readJson('./faqs.json');
-  await dbContext.executeNonQuery('TRUNCATE TABLE faqs;');
+  await sqlNonQuery('TRUNCATE TABLE faqs;');
 
   for (const faq of faqs) {
     const question = faq.Question.replace(/'/g, "''");
     const answer = faq.Answer.replace(/'/g, "''").slice(0, 4000);
     const sqlQuery = `INSERT INTO faqs (Question, Answer) VALUES ('${question}', '${answer}');`;
-    await dbContext.executeNonQuery(sqlQuery);
+    await sqlNonQuery(sqlQuery);
   }
   res.send('FAQs uploaded to SQL DB');
 });
-
 
 
 module.exports = app;
