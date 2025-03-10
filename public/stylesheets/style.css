@@ -30,3 +30,9 @@ a {
 .endpoints-table tr:hover {
   background-color: #ddd;
 }
+.strikethrough {
+  text-decoration: line-through;
+}
+.greyed-out {
+  color: grey;
+}

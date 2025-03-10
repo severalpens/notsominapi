@@ -16,80 +16,105 @@
       <tr>
         <th>Verb</th>
         <th>Endpoint</th>
+        <th>Description</th>
         <th>DateCreated</th>
+        <th>Used By Client Routes</th>
       </tr>
     </thead>
     <tbody>
       <tr>
-        <td>[GET]</td>
-        <td><a href="/runTests">/runTests</a></td>
-        <td>2023-10-01</td>
+        <td>[POST]</td>
+        <td>/search</td>
+        <td>Emulates 'Baseline Search' </td>
+        <td>2025-03-01</td>
+        <td><div>/manualReview</div></td>
       </tr>
+
       <tr>
         <td>[POST]</td>
         <td>/submitAssessment</td>
-        <td>2023-10-02</td>
+        <td>Submits an assessment</td>
+        <td>2025-03-01</td>
+        <td>/manualReview</td>
       </tr>
       <tr>
         <td>[GET]</td>
         <td><a href="/getAssessments">/getAssessments</a></td>
-        <td>2023-10-03</td>
+        <td>Gets assessments</td>
+        <td>2025-03-01</td>
+        <td>/manualReview, /assessmentResults</td>
       </tr>
-      <tr>
+      <tr hidden>
         <td>[GET]</td>
         <td><a href="/getRandomQuestions">/getRandomQuestions</a></td>
-        <td>2023-10-04</td>
+        <td>Gets random questions</td>
+        <td>2025-03-01</td>
+        <td></td>
       </tr>
       <tr>
         <td>[GET]</td>
         <td><a href="/GetSearchQueryTestSet">/GetSearchQueryTestSet</a></td>
-        <td>2023-10-05</td>
+        <td>Gets search query test set</td>
+        <td>2025-03-01</td>
+        <td>/manualReview</td>
       </tr>
-      <tr>
+      <tr hidden>
         <td>[GET]</td>
         <td><a href="/test1">/test1</a></td>
-        <td>2023-10-06</td>
+        <td></td>
+        <td>2025-03-01</td>
+        <td></td>
       </tr>
-      <tr>
-        <td>[GET]</td>
-        <td><a href="/baseline">/baseline</a></td>
-        <td>2023-10-07</td>
-      </tr>
-      <tr>
-        <td>[POST]</td>
-        <td>/baseline</td>
-        <td>2023-10-08</td>
-      </tr>
-      <tr>
+      <tr hidden>
         <td>[GET]</td>
         <td><a href="/all">/all</a></td>
-        <td>2023-10-09</td>
+        <td></td>
+        <td>2025-03-01</td>
+        <td></td>
       </tr>
-      <tr>
+      <tr hidden>
         <td>[POST]</td>
         <td>/all</td>
-        <td>2023-10-10</td>
+        <td></td>
+        <td>2025-03-01</td>
+        <td>/allDocs</td>
       </tr>
-      <tr>
+      <tr hidden>
         <td>[POST]</td>
         <td>/completionSuggestor</td>
-        <td>2023-10-11</td>
+        <td></td>
+        <td>2025-03-01</td>
+        <td>/completionSuggestor</td>
       </tr>
-      <tr>
+      <tr class="greyed-out">
         <td>[POST]</td>
         <td>/:indexName/_search</td>
-        <td>2023-10-12</td>
+        <td>Baseline search with index passed in url param</td>
+        <td>2025-03-01</td>
+        <td></td>
       </tr>
-      <tr>
+      <tr hidden>
+        <td>[POST]</td>
+        <td><a href="/uploadfaqstosqldb">/uploadfaqstosqldb</a></td>
+        <td></td>
+        <td>2025-03-01</td>
+        <td></td>
+      </tr>
+      <tr class="greyed-out">
+        <td>[GET]</td>
+        <td>/regenerateAutomatedTestResults</td>
+        <td>Regenerates automated test results</td>
+        <td>2025-03-01</td>
+        <td>/rerunAutoTests</td>
+      </tr>
+      <tr class="greyed-out">
         <td>[USE]</td>
         <td>/proxysearch</td>
-        <td>2023-10-13</td>
+        <td>Client sends Elasticsearch JSON body. API simply passes it along </td>
+        <td>2025-03-01</td>
+        <td></td>
       </tr>
-      <tr>
-        <td>[GET]</td>
-        <td><a href="/uploadfaqstosqldb">/uploadfaqstosqldb</a></td>
-        <td>2023-10-14</td>
-      </tr>
+
     </tbody>
   </table>
 </body>
