@@ -9,7 +9,7 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { sqlQuery, sqlNonQuery } = require('./utils/sqldb');
 const  EsContext = require('./utils/EsContext');
-
+const allRouter = require('./routes/all');
 
 var app = express();
 app.use(cors());
@@ -33,15 +33,17 @@ var endpointRouter = require('./routes/endpoints');
 
 app.use('/', indexRouter);
 app.use('/endpoints', endpointRouter);
+app.use('/all', allRouter);
 
 app.get('/regenerateAutomatedTestResults', async function (req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   let dt = new Date();
-  let insert_date = dt.toISOString();
-  const timestampSuffix = `${dt.getFullYear()}${String(dt.getMonth() + 1).padStart(2, '0')}${String(dt.getDate()).padStart(2, '0')}${String(dt.getHours()).padStart(2, '0')}${String(dt.getMinutes()).padStart(2, '0')}${String(dt.getSeconds()).padStart(2, '0')}`;
-  await sqlNonQuery(`insert into archive.SearchQueryTestSet${timestampSuffix} select * from tst.SearchQueryTestSet;`);
+  let melbourneTime = new Date(dt.toLocaleString("en-US", { timeZone: "Australia/Melbourne" }));
+  let insert_date = melbourneTime.toISOString();
+  const timestampSuffix = `${melbourneTime.getFullYear()}${String(melbourneTime.getMonth() + 1).padStart(2, '0')}${String(melbourneTime.getDate()).padStart(2, '0')}${String(melbourneTime.getHours()).padStart(2, '0')}${String(melbourneTime.getMinutes()).padStart(2, '0')}${String(melbourneTime.getSeconds()).padStart(2, '0')}`;
+  await sqlNonQuery(`select * into archive.AutomatedTestResults${timestampSuffix} from tst.AutomatedTestResults;`);
   await sqlNonQuery(`truncate table tst.AutomatedTestResults;`);
 
   const searchQueryTestSet = await sqlQuery('SELECT * FROM tst.SearchQueryTestSet;');
@@ -135,7 +137,7 @@ app.get('/regenerateAutomatedTestResults', async function (req, res) {
       }
 
       // Send update to client
-      res.write(`data: ${JSON.stringify({ search_id, result_id, title, type, description, answer, _score, isMatch })}\n\n`);
+      res.write(`data: ${title}\n\n`);
     }
   }
   res.write('data: completed\n\n');
@@ -144,6 +146,7 @@ app.get('/regenerateAutomatedTestResults', async function (req, res) {
 
 app.post('/submitAssessment', async function (req, res) {
   const { sql, search_term } = req.body;
+  console.log(sql);
   await sqlNonQuery(sql);
   await sqlNonQuery(`UPDATE tst.SearchQueryTestSet SET assessed = '${new Date().toISOString()}' WHERE search_term = '${search_term}';`);
   res.send('Assessment submitted');
@@ -157,7 +160,12 @@ app.get('/getAssessments', async function (req, res) {
 });
 
 app.get('/GetSearchQueryTestSet', async function (req, res) {
-  const sql = 'SELECT distinct id, search_id,  search_term, expected_results, result_quality, assessed FROM tst.SearchQueryTestSet  order by id;';
+  const sql = `SELECT 
+distinct id, search_id,  search_term, expected_results, result_quality, assessed 
+FROM tst.SearchQueryTestSet 
+where result_quality = '0'
+and expected_results  in (select fragmentTitle from src.DummyIndex);
+`;
   const result = await sqlQuery(sql);
   res.send(result);
 });
