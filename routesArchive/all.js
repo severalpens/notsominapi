@@ -7,6 +7,15 @@ const { sqlQuery, sqlNonQuery } = require('../utils/sqldb');
 
 
 router.get('/', async function (req, res) {
+  let dt = new Date();
+  let dtYear = dt.getFullYear();
+  let dtMonth = String(dt.getMonth() + 1).padStart(2, '0');
+  let dtDay = String(dt.getDate()).padStart(2, '0');
+  let dtHour = String(dt.getHours()).padStart(2, '0');
+  let dtMinute = String(dt.getMinutes()).padStart(2, '0');
+  let dtSecond = String(dt.getSeconds()).padStart(2, '0');
+  let insert_date = `${dtYear}-${dtMonth}-${dtDay} ${dtHour}:${dtMinute}:${dtSecond}`;
+  
     if (!(await esContext.verifyClientConnection())) {
       return res.status(500).json({ error: 'Failed to connect to Elasticsearch' });
     }
@@ -30,8 +39,9 @@ router.get('/', async function (req, res) {
     });
 
     for (const result of results.hits.hits) {
-      const fragmentTitle = result._source.fragmentTitle;
-      await sqlNonQuery(`INSERT INTO src.dummyIndex (fragmentTitle) VALUES ('${fragmentTitle}')`);
+      const fragmentTitle = result._source.fragmentTitle.replace(/'/g, "''");
+    
+      await sqlNonQuery(`INSERT INTO src.dummyIndex (fragmentTitle, Timestamp) VALUES ('${fragmentTitle}','${insert_date}');`);
       
     }
     res.json(results);

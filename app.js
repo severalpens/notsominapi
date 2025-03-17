@@ -9,7 +9,8 @@ const bodyParser = require('body-parser');
 const fs = require('fs-extra');
 const { sqlQuery, sqlNonQuery } = require('./utils/sqldb');
 const  EsContext = require('./utils/EsContext');
-const allRouter = require('./routes/all');
+const allIndexDocsRouter = require('./routes/allIndexDocs');
+const testResultsRouter = require('./routes/testResults');
 
 var app = express();
 app.use(cors());
@@ -33,7 +34,9 @@ var endpointRouter = require('./routes/endpoints');
 
 app.use('/', indexRouter);
 app.use('/endpoints', endpointRouter);
-app.use('/all', allRouter);
+app.use('/allIndexDocs', allIndexDocsRouter);
+app.use('/testResults', testResultsRouter);
+
 
 app.get('/regenerateAutomatedTestResults', async function (req, res) {
   res.setHeader('Content-Type', 'text/event-stream');
@@ -52,14 +55,40 @@ app.get('/regenerateAutomatedTestResults', async function (req, res) {
     const result = await esContext.client.search({
       index: 'dummy_index',
       body: {
-        query: {
-          multi_match: {
-            query: search_term,
-            fields: [
-              "fragmentTitle",
-              "shortDescription",
-              "faqShortAnswer",
-              "faqLongAnswer"
+        query:   {
+          "bool": {
+            "should": [
+              {
+                "sparse_vector": {
+                  "query": search_term,
+                  "field": "fragmentTitleEmbedding",
+                  "inference_id": ".elser_model_2",
+                  "boost": 1
+                }
+              },
+              {
+                "sparse_vector": {
+                  "query": search_term,
+                  "field": "faqShortAnswerEmbedding",
+                  "inference_id": ".elser_model_2",
+                  "boost": 1
+                }
+              },
+              {
+                "sparse_vector": {
+                  "query": search_term,
+                  "field": "shortDescriptionEmbedding",
+                  "inference_id": ".elser_model_2",
+                  "boost": 1
+                }
+              },
+              {
+                "multi_match": {
+                  "query": search_term,
+                  "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
+                  "boost": 4
+                }
+              }
             ]
           }
         },

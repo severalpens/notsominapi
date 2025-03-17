@@ -1,12 +1,15 @@
-drop table TestQuestions
+with b1 as (
+select distinct expected_results from (
+select t1.fragmentTitle, t2.expected_results from src.DummyIndex t1
+full outer join tst.SearchQueryTestSet t2 on t1.fragmentTitle  like '%' + t2.expected_results  + '%'
+) t3
+where fragmentTitle is null)
+select * from b1
 
-create table TestQuestions(
-Id int not null primary key identity(1,1),
-Question varchar(4000),
-QuestionSource varchar(4000)
-);
+update t1
+set t1.expected_result_exists = 1
+from tst.SearchQueryTestSet t1
+where t1.expected_results not in (select expected_results from b1)
+--or expected_results is null;
 
-insert into TestQuestions select distinct Question, 'faqs' from faqs;
-insert into TestQuestions select distinct Title, 'dummy_index_data_sample' from dummy_index_data_sample where Title not in (select distinct question from testquestions);
-
-select * from testQuestions;
+select * from tst.SearchQueryTestSet;
