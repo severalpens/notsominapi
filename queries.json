@@ -1,0 +1,93 @@
+{
+    "baseline": {
+      "description": "Keyword search on fragmentTitle, shortDescription, faqShortAnswer\nNo boosting",
+      "query": {
+        "multi_match": {
+          "query": "{{query}}",
+          "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"]
+        }
+      }
+    },
+    "semantic": {
+      "description": "Semantic search on fragmentTitle, shortDescription, faqShortAnswer\nPlus keyword search on fragmentTitle, shortDescription, faqShortAnswer\nNo boosting",
+      "query": {
+        "bool": {
+          "should": [
+            {
+              "sparse_vector": {
+                "query": "{{query}}",
+                "field": "fragmentTitleEmbedding",
+                "inference_id": ".elser_model_2",
+                "boost": 1
+              }
+            },
+            {
+              "sparse_vector": {
+                "query": "{{query}}",
+                "field": "faqShortAnswerEmbedding",
+                "inference_id": ".elser_model_2",
+                "boost": 1
+              }
+            },
+            {
+              "sparse_vector": {
+                "query": "{{query}}",
+                "field": "shortDescriptionEmbedding",
+                "inference_id": ".elser_model_2",
+                "boost": 1
+              }
+            },
+            {
+              "multi_match": {
+                "query": "{{query}}",
+                "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
+                "boost": 4
+              }
+            }
+          ]
+        }
+      }
+    },
+    "semantic_synonym": {
+      "description": "Semantic search on fragmentTitle, shortDescription, faqShortAnswer\nPlus keyword search on fragmentTitle, shortDescription, faqShortAnswer\nPlus synonyms for keyword search\nNo boosting",
+      "query": {
+        "bool": {
+          "should": [
+            {
+              "sparse_vector": {
+                "query": "{{query}}",
+                "field": "fragmentTitleEmbedding",
+                "inference_id": ".elser_model_2",
+                "boost": 1
+              }
+            },
+            {
+              "sparse_vector": {
+                "query": "{{query}}",
+                "field": "faqShortAnswerEmbedding",
+                "inference_id": ".elser_model_2",
+                "boost": 1
+              }
+            },
+            {
+              "sparse_vector": {
+                "query": "{{query}}",
+                "field": "shortDescriptionEmbedding",
+                "inference_id": ".elser_model_2",
+                "boost": 1
+              }
+            },
+            {
+              "multi_match": {
+                "query": "{{query}}",
+                "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
+                "analyzer": "synonyms_search",
+                "boost": 4
+              }
+            }
+          ]
+        }
+      }
+    }
+  }
+  
