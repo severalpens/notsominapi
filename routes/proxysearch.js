@@ -36,7 +36,7 @@ router.post('/', async function (req, res, next) {
     const reqBody = parseJSON(req.body);
     console.log('reqBody', reqBody);
     const result = await esContext.client.search({
-      index: 'dummy_index_v2',
+      index: 'dummy_index',
       body: reqBody
     });
     res.send(result);

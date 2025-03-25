@@ -36,15 +36,22 @@ app.use('/endpoints', endpointRouter);
 app.use('/allIndexDocs', allIndexDocsRouter);
 app.use('/testResults', testResultsRouter);
 
+//await axios.get(`${elasticsearchProxyUri}/GetExpectedResults?search_id=${search_id}`)
+app.get('/GetExpectedResults', async function (req, res) {
+  const search_id = req.query.search_id;
+  const sql = `SELECT * FROM dim.ExpectedResults WHERE search_id = '${search_id}';`;
+  const result = await sqlQuery(sql);
+  res.send(result);
+});
 
 app.post('/submitAssessment', async function (req, res) {
   const { appAssessment, appRevisedOrder } = req.body;
   const sql = `INSERT INTO app.Assessments (search_id, query_name, search_term, author_name, comments,timestamp)
-    VALUES ('${appAssessment.search_id}', '${appAssessment.query_name}', '${prepareStringForSql(appAssessment.search_term)}', '${appAssessment.author_name}', '${prepareStringForSql(appAssessment.comments)}',getdate());`;
+    VALUES ('${appAssessment.search_id}', '${appAssessment.query_name}', '${prepareStringForSql(appAssessment.search_term)}', '${appAssessment.author_name}', '${prepareStringForSql(appAssessment.comments)}',SYSDATETIMEOFFSET());`;
   await sqlNonQuery(sql);
   for (const result of appRevisedOrder) {
     const sql2 = `insert into app.RevisedOrder (search_id, query_name, search_term, author_name, pos, fragmenttitle, timestamp)
-      VALUES ('${appAssessment.search_id}', '${appAssessment.query_name}', '${prepareStringForSql(appAssessment.search_term)}', '${appAssessment.author_name}', ${result.pos}, '${prepareStringForSql(result.fragment_title)}', getdate());`;
+      VALUES ('${appAssessment.search_id}', '${appAssessment.query_name}', '${prepareStringForSql(appAssessment.search_term)}', '${appAssessment.author_name}', ${result.pos}, '${prepareStringForSql(result.fragment_title)}', SYSDATETIMEOFFSET());`;
     await sqlNonQuery(sql2);
   }
   res.send('Assessment submitted');
