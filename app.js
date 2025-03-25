@@ -111,6 +111,7 @@ app.post('/:indexName/_search', async function (req, res, next) {
       index: req.params.indexName,
       body: {
         query: query,
+        // size: 3,
         _source: [
           "uuid",
           "resultType",
