@@ -59,7 +59,7 @@ app.post('/submitAssessment', async function (req, res) {
 
 
 app.get('/getAssessments', async function (req, res) {
-  const sql = 'SELECT * FROM tst.ManualReviews;';
+  const sql = 'SELECT * FROM app.Assessments;';
   const result = await sqlQuery(sql);
   res.send(result);
 });
