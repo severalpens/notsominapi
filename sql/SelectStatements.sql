@@ -1,69 +1,25 @@
-select * from dim.ResultQualityCategories;
-select * from dim.ExpectedResults -- where search_id = 'tc033';
-select * from dim.TestSet;
-select * from dim.QueryNames;
-select * from fact.ActualResults
-select * from fact.FinalScores;
+--select 'select * from ' + TABLE_SCHEMA + '.' + table_name from INFORMATION_SCHEMA.tables order by table_schema, table_name;
+declare @search_id varchar(50) = 'TC033'
+--select * from app.assessments
+--select t1.*, t2.result_pos from app.revisedOrder t1
+--join fact.actualresults t2 on t1.search_id = t2.search_id and t1.fragmentTitle = t2.fragmentTitle
+--order by t1.search_id, t1.pos;
 
-    SELECT distinct query_name, search_id, search_term, expected_result_pos FROM fact.ExpectedResultsPerQuery 
-	order by query_name, search_id,  expected_result_pos 
+--select * from fact.comments where search_id = @search_id;
+--select * from app.revisedOrder where search_id = @search_id;
+--select * from dim.TestSet where search_id = @search_id;
+select * from dim.ExpectedResults where search_id = @search_id;
+--select * from fact.ActualResults where search_id = @search_id;
+--select * from fact.AllIndexDocs where fragmenttitle like '%What is a Security Token Code and how do I get one%' --where search_id = @search_id;
+select * from fact.ExpectedResultsPerQuery where search_id = @search_id;
+select * from fact.ExpectedResultsSummary where search_id = @search_id;
 
-	
-	update t1
-    set t1.expected_pos  = t2.expected_result_pos
-    from fact.actualresults t1
-    join  fact.expectedresultsperquery t2 
-    on t1.search_id = t2.search_id
-    and t1.query_name = t2.query_name
-    where t1.fragmenttitle = t2.expected_result;
-select * 
-from fact.ExpectedResultsSummary t1
-join (select search_id, query_name, count(*) mycount from fact.actualResults group by search_id, query_name) t2
-on t1.search_id = t2.search_id and t1.query_name = t2.query_name
+select fragmentTitle, count(*) from fact.ActualResults where query_name = 'boosting_1_1_1_15_15' and search_id = 'TC033' group by fragmentTitle
 
-update fact.ExpectedResultsPerQuery
-set isinactuals = 1 
-where actual_pos > 0;
-
-update fact.ExpectedResultsSummary
-set ExpectedResultsInActualResultsCount = 
+SELECt fragmentTitle, count(*) FROM FACT.AllIndexDocs group by fragmentTitle
 
 
 
-        update t1
-set t1.ExpectedResultsInActualResultsCount = t2.mycount
-from fact.ExpectedResultsSummary t1
-join (select search_id, query_name, count(*) mycount from fact.ExpectedResultsPerQuery where actual_pos > 0 GROUP BY search_id, query_name) t2
-on t1.search_id = t2.search_id and t1.query_name = t2.query_name;
-
-
-select Id ,search_id, index_name, query_name, search_term, result_pos, fragmentTitle,  isPreferredAnswer, run_date from fact.ActualResults order by query_name, search_id, result_pos;
-exec update_final_scores
-select distinct query_name, search_id from fact.expectedREsultsPerQuery
-where expected_result_pos = 1
-and isExpectedResultReturned = 1
-select * from vwReport1;
-select * from fact.TestResults;
-select * from fact.AllIndexDocs;
-select * from report.TestReport1;
-select * from src.Faqs;
-select * from src.ManualDeskCheck;
-select * from src.Top100SearchTermsV1;
-select * from src.Top100SearchTermsV1ExpectedResults;
-select * from zzArchive.ExpectedResults2;
-select * from zzArchive.SearchQueryTestSet;
-    SELECT distinct search_id, search_term, query_name FROM fact.ExpectedResultsPerQuery where search_id not in 
-    (select distinct search_id from fact.ExpectedResultsPerQuery where isinindex = 0);
-
-alter view finalscore1 as 
-select query_name, result_quality, count(*) Total
-from fact.expectedResultsPerQuery t1
-join dim.resultqualitycategories t2 on t1.finalscore = t2.id
-group by query_name, result_quality;
-
-select * from dim.ResultQualityCategories;;
-
-select * from fact.ExpectedResultsPerQuery;
 
 
 
