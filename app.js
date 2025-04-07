@@ -105,7 +105,9 @@ app.post('/:indexName/_search', async function (req, res, next) {
   const indexName = req.params.indexName;
   const query_name = req.body.queryName;
   const search_term = req.body.searchTerm;
-  const query = buildQuery( query_name, search_term);
+  const boostingValues = req.body.boostingValues;
+  const boostingValuesArray = boostingValues.split(',').map(Number);
+  const query = buildQuery( query_name, search_term, boostingValuesArray);
   if (await esContext.verifyClientConnection()) {
     const result = await esContext.client.search({
       index: req.params.indexName,

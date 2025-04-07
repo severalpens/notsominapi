@@ -2,7 +2,7 @@ require('dotenv').config();
 var path = require('path');
 var fs = require('fs-extra');
 
-const buildQuery = ( queryName, searchTerm) => {
+const buildQuery = ( queryName, searchTerm, boostingValues) => {
     const queryTemplates = {
         "baseline": {
           "description": "Keyword search on fragmentTitle, shortDescription, faqShortAnswer\nNo boosting",
@@ -10,128 +10,6 @@ const buildQuery = ( queryName, searchTerm) => {
             "multi_match": {
               "query": searchTerm,
               "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"]
-            }
-          }
-        },
-        "semantic": {
-          "description": "Semantic search on fragmentTitle, shortDescription, faqShortAnswer\nPlus keyword search on fragmentTitle, shortDescription, faqShortAnswer\nNo boosting",
-          "query": {
-            "bool": {
-              "should": [
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "fragmentTitleEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "faqShortAnswerEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "shortDescriptionEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "multi_match": {
-                    "query": searchTerm,
-                    "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
-                    "boost": 4
-                  }
-                }
-              ]
-            }
-          }
-        },
-        "semantic_synonym": {
-          "description": "Semantic search on fragmentTitle, shortDescription, faqShortAnswer\nPlus keyword search on fragmentTitle, shortDescription, faqShortAnswer\nPlus synonyms for keyword search\nNo boosting",
-          "query": {
-            "bool": {
-              "should": [
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "fragmentTitleEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "faqShortAnswerEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "shortDescriptionEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "multi_match": {
-                    "query": searchTerm,
-                    "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
-                    "analyzer": "synonyms_search",
-                    "boost": 4
-                  }
-                }
-              ]
-            }
-          }
-        }
-        ,"synonym":{
-          "description": "Keyword search on fragmentTitle, shortDescription, faqShortAnswer\nPlus synonyms for keyword search\nNo boosting",
-          "query": {
-            "bool": {
-              "should": [
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "fragmentTitleEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "faqShortAnswerEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "sparse_vector": {
-                    "query": searchTerm,
-                    "field": "shortDescriptionEmbedding",
-                    "inference_id": ".elser_model_2",
-                    "boost": 1
-                  }
-                },
-                {
-                  "multi_match": {
-                    "query": searchTerm,
-                    "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
-                    "analyzer": "synonyms_search",
-                    "boost": 4
-                  }
-                }
-              ]
             }
           }
         },
@@ -147,7 +25,7 @@ const buildQuery = ( queryName, searchTerm) => {
                         "query": searchTerm,
                         "field": "fragmentTitleEmbedding",
                         "inference_id": ".elser_model_2",
-                        "boost": 1
+                        "boost": boostingValues[0]
                       }
                     },
                     {
@@ -155,7 +33,7 @@ const buildQuery = ( queryName, searchTerm) => {
                         "query": searchTerm,
                         "field": "faqShortAnswerEmbedding",
                         "inference_id": ".elser_model_2",
-                        "boost": 1
+                        "boost": boostingValues[1]
                       }
                     },
                     {
@@ -163,7 +41,7 @@ const buildQuery = ( queryName, searchTerm) => {
                         "query": searchTerm,
                         "field": "shortDescriptionEmbedding",
                         "inference_id": ".elser_model_2",
-                        "boost": 1
+                        "boost": boostingValues[2]
                       }
                     },
                     {
@@ -171,7 +49,7 @@ const buildQuery = ( queryName, searchTerm) => {
                         "query": searchTerm,
                         "fields": ["fragmentTitle", "shortDescription", "faqShortAnswer"],
                         "analyzer": "synonyms_search",
-                        "boost": 2.5
+                        "boost": boostingValues[3]
                       }
                     }
                   ]
@@ -180,7 +58,7 @@ const buildQuery = ( queryName, searchTerm) => {
               "functions": [
                 {
                   "filter": { "term": { "resultType": "Self Service Task" } },
-                  "weight": 2
+                  "weight": boostingValues[4]
                 }
               ],
               "boost_mode": "multiply"
